@@ -1,3 +1,3 @@
-# sqlalchemy-workshop-demo
+# sqlalchemy-workshop
 
 SQLAlchemy asyncio workshop demo project
