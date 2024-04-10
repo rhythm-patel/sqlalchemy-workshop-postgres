@@ -1,38 +1,19 @@
 import logging
-import os
 
-import psycopg2
-
-DB_CONFIG = {
-    "database": os.environ.get("POSTGRES_DB"),
-    "user": os.environ.get("POSTGRES_USER"),
-    "host": os.environ.get("POSTGRES_DB"),
-    "password": os.environ.get("POSTGRES_PASSWORD"),
-    "port": os.environ.get("POSTGRES_PORT"),
-}
+from db.base import engine
+from sqlalchemy import text
 
 
 def execute_query(query, params=None):
-    with psycopg2.connect(**DB_CONFIG) as conn:
-        cur = conn.cursor()
-        cur.execute(query, params)
-        rows = cur.fetchall()
-        return rows
+    with engine.connect() as conn:
+        return conn.execute(text(query), params)
 
 
 def execute_insert_query(query, params=None):
-    with psycopg2.connect(**DB_CONFIG) as conn:
-        cur = conn.cursor()
-        cur.execute(query, params)
+    with engine.connect() as conn:
+        result = conn.execute(text(query), params)
         conn.commit()
-        return cur.fetchone()
-
-
-def execute_insert_queries(query, params_tuple=None):
-    with psycopg2.connect(**DB_CONFIG) as conn:
-        cur = conn.cursor()
-        cur.executemany(query, params_tuple)
-        conn.commit()
+        return result
 
 
 def get_customers():
@@ -52,11 +33,11 @@ def get_orders_of_customer(customer_id):
         JOIN order_items 
         ON 
             order_items.order_id = orders.id 
-        JOIN item
+        JOIN item 
         ON 
             item.id = order_items.item_id
         WHERE
-            orders.customer_id=%(customer_id)s
+            orders.customer_id=:customer_id
         """,
         {"customer_id": customer_id},
     )
@@ -76,11 +57,11 @@ def get_total_cost_of_an_order(order_id):
         ON 
             item.id = order_items.item_id
         WHERE
-            orders.id=%(order_id)s
+            orders.id=:order_id
         """,
         {"order_id": order_id},
     )
-    return rows
+    return rows.one().total
 
 
 def get_orders_between_dates(after, before):
@@ -102,9 +83,9 @@ def get_orders_between_dates(after, before):
         ON 
             item.id = order_items.item_id
         WHERE
-            orders.order_time >= %(after)s
+            orders.order_time >= :after
         AND
-            orders.order_time <= %(before)s
+            orders.order_time <= :before
         """,
         {"after": after, "before": before},
     )
@@ -113,31 +94,36 @@ def get_orders_between_dates(after, before):
 
 def add_new_order_for_customer(customer_id, items):
     try:
-        new_order_id = execute_insert_query(
+        result = execute_insert_query(
             """
             INSERT INTO orders
                 (customer_id, order_time)
             VALUES
-                (%(customer_id)s, NOW())
+                (:customer_id, NOW())
             RETURNING id
             """,
             {"customer_id": customer_id},
-        )[0]
+        )
+        new_order_id = result.one().id
 
         (
-            execute_insert_queries(
+            execute_insert_query(
                 """
             INSERT INTO order_items
                 (order_id, item_id, quantity)
-            VALUES (%s, %s, %s)
+            VALUES
+                (:order_id, :item_id, :quantity)
             """,
-                (
-                    (new_order_id, item["id"], item["quantity"])
+                [
+                    {
+                        "order_id": new_order_id,
+                        "item_id": item["id"],
+                        "quantity": item["quantity"],
+                    }
                     for item in items
-                ),
+                ],
             )
         )
-
         return True
 
     except Exception:
