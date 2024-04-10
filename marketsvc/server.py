@@ -20,7 +20,7 @@ def hello():
 @app.route("/api/customers")
 def customers():
     customers = get_customers()
-    response = [customer._asdict() for customer in customers]
+    response = [customer.as_dict() for customer in customers]
     return jsonify(response)
 
 
@@ -28,7 +28,7 @@ def customers():
 def orders():
     cust_id = request.args.get("cust_id")
     orders = get_orders_of_customer(cust_id)
-    response = [order._asdict() for order in orders]
+    response = [order.as_dict() for order in orders]
     return jsonify(response)
 
 
@@ -45,7 +45,7 @@ def orders_between_dates():
     after = request.args.get("after")
     before = request.args.get("before")
     orders = get_orders_between_dates(after, before)
-    response = [order._asdict() for order in orders]
+    response = [order.as_dict() for order in orders]
     return jsonify(response)
 
 

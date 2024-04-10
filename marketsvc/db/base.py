@@ -1,6 +1,7 @@
 import os
 
 from sqlalchemy import URL, create_engine
+from sqlalchemy.orm import DeclarativeBase
 
 url_object = URL.create(
     "postgresql+psycopg2",
@@ -12,3 +13,7 @@ url_object = URL.create(
 )
 
 engine = create_engine(url_object, echo=True)
+
+
+class Base(DeclarativeBase):
+    pass
