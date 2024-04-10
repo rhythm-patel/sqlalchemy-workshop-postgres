@@ -1,4 +1,4 @@
-flask
-psycopg2
+flask[async]
+asyncpg
 sqlalchemy
 ruff

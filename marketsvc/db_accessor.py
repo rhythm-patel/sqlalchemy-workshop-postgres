@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from db.base import engine
@@ -36,9 +37,7 @@ def get_total_cost_of_an_order(order_id):
             .join(OrderItems.item)
             .where(Orders.id == order_id)
         )
-        total_cost = result.scalar()
-
-        return total_cost
+        return result.scalar()
 
 
 def get_orders_between_dates(after, before):
@@ -75,8 +74,8 @@ def add_new_order_for_customer(customer_id, items):
 
             session.add(new_order)
             session.commit()
-
         return True
 
     except Exception:
+        logging.exception("Failed to add new order")
         return False

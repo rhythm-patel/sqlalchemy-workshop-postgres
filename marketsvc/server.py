@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 from db_accessor import (
@@ -8,6 +9,7 @@ from db_accessor import (
     get_total_cost_of_an_order,
 )
 from flask import Flask, Response, jsonify, request
+from formatters import str_to_date
 
 app = Flask(__name__)
 
@@ -18,43 +20,54 @@ def hello():
 
 
 @app.route("/api/customers")
-def customers():
+async def customers():
     customers = get_customers()
-    response = [customer.as_dict() for customer in customers]
+    response = [customer.as_dict() async for customer in customers]
     return jsonify(response)
 
 
 @app.route("/api/orders")
-def orders():
-    cust_id = request.args.get("cust_id")
-    orders = get_orders_of_customer(cust_id)
+async def orders():
+    cust_id = int(request.args.get("cust_id"))
+    orders = await get_orders_of_customer(cust_id)
     response = [order.as_dict() for order in orders]
     return jsonify(response)
 
 
 @app.route("/api/order_total")
-def order_total():
-    order_id = request.args.get("order_id")
-    total_cost = get_total_cost_of_an_order(order_id)
+async def order_total():
+    order_id = int(request.args.get("order_id"))
+    total_cost = await get_total_cost_of_an_order(order_id)
     response = {"total_cost": total_cost}
     return jsonify(response)
 
 
+@app.route("/api/orders_total")
+async def orders_total():
+    orders = request.json.get("orders", [])
+    async with asyncio.TaskGroup() as tg:
+        order_tasks = [
+            tg.create_task(get_total_cost_of_an_order(order))
+            for order in orders
+        ]
+    return jsonify([task.result() for task in order_tasks])
+
+
 @app.route("/api/orders_between_dates")
-def orders_between_dates():
-    after = request.args.get("after")
-    before = request.args.get("before")
+async def orders_between_dates():
+    after = str_to_date(request.args.get("after"))
+    before = str_to_date(request.args.get("before"))
     orders = get_orders_between_dates(after, before)
-    response = [order.as_dict() for order in orders]
+    response = [order.as_dict() async for order in orders]
     return jsonify(response)
 
 
 @app.route("/api/add_new_order", methods=["POST"])
-def add_new_order():
+async def add_new_order():
     customer_id = request.json.get("customer_id")
     items = request.json.get("items")
 
-    success = add_new_order_for_customer(customer_id, items)
+    success = await add_new_order_for_customer(customer_id, items)
     return Response(status=200) if success else Response(status=500)
 
 
