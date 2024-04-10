@@ -15,14 +15,14 @@ This repository contains the code for the Marketplace service demo to follow alo
 
 2. In one terminal window, run
     ```console
-    ./run.sh run
-    ```
-    OR
-    ```console
     docker compose run -p 9090:9090 marketsvc
     ```
 
-3. Once the service is running, run the `curl` commands you require in another terminal window, such as
+3. Once the service is running, you can interact with it over http using `curl`. We’ve created a simple shell script to make it easier for you to do so. For example,
     ```console
-    ./run.sh customers
+    ./run.sh ordertotal 2
+    ```
+    which is equivalent to
+    ```console
+    curl http://localhost:9090/api/order_total?order_id=2
     ```

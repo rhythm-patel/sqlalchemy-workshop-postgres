@@ -6,10 +6,10 @@ case $1 in
         curl http://localhost:9090/api/customers
         ;;
     "custorders")
-        curl http://localhost:9090/api/orders?cust_id=1
+        curl http://localhost:9090/api/orders?cust_id=${2:-1}
         ;;
     "ordertotal")
-        curl http://localhost:9090/api/order_total?order_id=1
+        curl http://localhost:9090/api/order_total?order_id=${2:-1}
         ;;
     "ordersbet")
         curl "http://localhost:9090/api/orders_between_dates?after=2024-03-14&before=2024-03-22"
