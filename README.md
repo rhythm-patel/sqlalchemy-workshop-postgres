@@ -4,17 +4,17 @@
 
 This repository contains the code for the Marketplace service demo to follow along the **No More Raw SQL: SQLAlchemy, ORMs and asyncio workshop**. 
 
-Please use this link for the workshop tutorial itself: [SQLAlchemy Workshop](https://aelsayed95.github.io/sqlalchemy-wkshop/)
+#### Please use this link for the workshop tutorial itself: [SQLAlchemy Workshop](https://aelsayed95.github.io/sqlalchemy-wkshop/)
 
 ### How to run this service?
 
 1. Build the Docker containers
-    ```
+    ```console
     docker compose build
     ```
 
 2. In one terminal window, run
-    ```
+    ```console
     ./run.sh run
     ```
     OR
