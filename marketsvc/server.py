@@ -22,7 +22,7 @@ def hello():
 @app.route("/api/customers")
 async def customers():
     customers = get_customers()
-    response = [dict(customer) async for customer in customers]
+    response = [customer._asdict() async for customer in customers]
     return jsonify(response)
 
 
@@ -30,15 +30,15 @@ async def customers():
 async def orders():
     cust_id = int(request.args.get("cust_id"))
     orders = await get_orders_of_customer(cust_id)
-    response = [dict(order) for order in orders]
+    response = [order._asdict() for order in orders]
     return jsonify(response)
 
 
 @app.route("/api/order_total")
 async def order_total():
     order_id = int(request.args.get("order_id"))
-    total = await get_total_cost_of_an_order(order_id)
-    return jsonify({"Order Total": total})
+    total_cost = await get_total_cost_of_an_order(order_id)
+    return jsonify({"total_cost": total_cost})
 
 
 @app.route("/api/orders_total")
@@ -57,14 +57,15 @@ async def orders_between_dates():
     after = str_to_date(request.args.get("after"))
     before = str_to_date(request.args.get("before"))
     orders = get_orders_between_dates(after, before)
-    result = [dict(order) async for order in orders]
-    return jsonify(result)
+    response = [order._asdict() async for order in orders]
+    return jsonify(response)
 
 
 @app.route("/api/add_new_order", methods=["POST"])
-async def add_new_order():
+async def add_order_items():
     customer_id = request.json.get("customer_id")
     items = request.json.get("items")
+
     success = await add_new_order_for_customer(customer_id, items)
     return Response(status=200) if success else Response(status=500)
 

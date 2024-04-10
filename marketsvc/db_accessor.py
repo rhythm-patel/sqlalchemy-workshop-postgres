@@ -1,34 +1,29 @@
 import logging
-import os
 
-import asyncpg
-
-DB_CONFIG = {
-    "database": os.environ.get("POSTGRES_DB"),
-    "user": os.environ.get("POSTGRES_USER"),
-    "host": os.environ.get("POSTGRES_DB"),
-    "password": os.environ.get("POSTGRES_PASSWORD"),
-    "port": os.environ.get("POSTGRES_PORT"),
-}
+from db.base import engine
+from sqlalchemy import text
 
 
-async def execute_query(query, *params):
-    conn = await asyncpg.connect(**DB_CONFIG)
-    async with conn.transaction():
-        return await conn.fetch(query, *params)
+async def execute_query(query, params=None):
+    async with engine.begin() as conn:
+        return await conn.execute(text(query), params)
 
 
-async def stream_query(query, *params):
-    conn = await asyncpg.connect(**DB_CONFIG)
-    async with conn.transaction():
-        async for row in conn.cursor(query, *params):
+async def stream_query(query, params=None):
+    async with engine.begin() as conn:
+        # https://docs.sqlalchemy.org/en/20/_modules/examples/asyncio/basic.html
+        # for a streaming result that buffers only segments of the
+        # result at time, the AsyncConnection.stream() method is used.
+        # this returns a sqlalchemy.ext.asyncio.AsyncResult object.
+        result = await conn.stream(text(query), params)
+        async for row in result:
             yield row
 
 
-async def execute_insert_query(query, params):
-    conn = await asyncpg.connect(**DB_CONFIG)
-    async with conn.transaction():
-        result = conn.cursor(query, params)
+async def execute_insert_query(query, params=None):
+    async with engine.begin() as conn:
+        result = await conn.execute(text(query), params)
+        await conn.commit()
         return result
 
 
@@ -44,27 +39,7 @@ async def get_orders_of_customer(customer_id):
             item.name, 
             item.description, 
             item.price, 
-            item.price*order_items.quantity
-        FROM orders 
-        JOIN order_items 
-        ON 
-            order_items.order_id = orders.id 
-        JOIN item
-        ON 
-            item.id = order_items.item_id
-        WHERE
-            orders.customer_id=$1
-        """,
-        customer_id,
-    )
-    return rows
-
-
-async def get_total_cost_of_an_order(order_id):
-    rows = await execute_query(
-        """
-        SELECT 
-            SUM(item.price*order_items.quantity)
+            item.price*order_items.quantity AS total
         FROM orders 
         JOIN order_items 
         ON 
@@ -73,11 +48,31 @@ async def get_total_cost_of_an_order(order_id):
         ON 
             item.id = order_items.item_id
         WHERE
-            orders.id=$1
+            orders.customer_id=:customer_id
         """,
-        order_id,
+        {"customer_id": customer_id},
     )
-    return rows[0].get("sum")
+    return rows
+
+
+async def get_total_cost_of_an_order(order_id):
+    result = await execute_insert_query(
+        """
+        SELECT 
+            SUM(item.price*order_items.quantity) AS total
+        FROM orders 
+        JOIN order_items 
+        ON 
+            order_items.order_id = orders.id 
+        JOIN item 
+        ON 
+            item.id = order_items.item_id
+        WHERE
+            orders.id=:order_id
+        """,
+        {"order_id": order_id},
+    )
+    return result.one().total
 
 
 def get_orders_between_dates(after, before):
@@ -87,7 +82,7 @@ def get_orders_between_dates(after, before):
             customer.name,
             item.name, 
             item.price, 
-            item.price*order_items.quantity
+            item.price*order_items.quantity AS total
         FROM orders 
         JOIN customer
         ON
@@ -99,44 +94,49 @@ def get_orders_between_dates(after, before):
         ON 
             item.id = order_items.item_id
         WHERE
-            orders.order_time >= $1
+            orders.order_time >= :after
         AND
-            orders.order_time <= $2
+            orders.order_time <= :before
         """,
-        after,
-        before,
+        {"after": after, "before": before},
     )
     return rows
 
 
 async def add_new_order_for_customer(customer_id, items):
     try:
-        new_order_id = await execute_insert_query(
+        result = await execute_query(
             """
             INSERT INTO orders
                 (customer_id, order_time)
             VALUES
-                ($1, NOW())
+                (:customer_id, NOW())
             RETURNING id
             """,
-            customer_id,
+            {"customer_id": customer_id},
         )
+        new_order_id = result.one().id
 
         (
             await execute_insert_query(
                 """
             INSERT INTO order_items
                 (order_id, item_id, quantity)
-            VALUES ($1, $2, $3)
+            VALUES
+                (:order_id, :item_id, :quantity)
             """,
-                (
-                    (new_order_id, item["id"], item["quantity"])
+                [
+                    {
+                        "order_id": new_order_id,
+                        "item_id": item["id"],
+                        "quantity": item["quantity"],
+                    }
                     for item in items
-                ),
+                ],
             )
         )
         return True
 
     except Exception:
-        logging.exception("Failed to update order")
+        logging.exception("Failed to add new order")
         return False
