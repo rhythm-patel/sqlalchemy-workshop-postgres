@@ -47,7 +47,7 @@ def get_orders_of_customer(customer_id):
             item.name, 
             item.description, 
             item.price, 
-            item.price*order_items.quantity
+            item.price*order_items.quantity AS total
         FROM orders 
         JOIN order_items 
         ON 
@@ -67,7 +67,7 @@ def get_total_cost_of_an_order(order_id):
     rows = execute_query(
         """
         SELECT 
-            SUM(item.price*order_items.quantity)
+            SUM(item.price*order_items.quantity) AS total
         FROM orders 
         JOIN order_items 
         ON 
@@ -90,7 +90,7 @@ def get_orders_between_dates(after, before):
             customer.name,
             item.name, 
             item.price, 
-            item.price*order_items.quantity
+            item.price*order_items.quantity AS total
         FROM orders 
         JOIN customer
         ON
